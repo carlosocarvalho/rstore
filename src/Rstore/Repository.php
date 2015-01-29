@@ -56,6 +56,8 @@ class Repository {
      */
     public function create($modelName, $properties = array()) {
         $model = null;
+
+        
         if(isset($this->models[$modelName])) {
             $model = new stdClass();
             foreach($this->models[$modelName] as $propertyName => $property) {
@@ -66,13 +68,14 @@ class Repository {
             }
             $model->created_date = null;
             $model->modified_date = null;
+            $model->soft_delete = null;
             $model->id = 0;
-            $model->name = $modelName;
+            $model->RepositoryNameSave = $modelName;
             foreach($properties as $property => $value) {
                 $model->$property = $value;
             }
         } else {
-            throw new Exception\ModelNotFound($modelName.' model not found');
+            throw new \Exception\ModelNotFound($modelName.' model not found');
         }
         return $this->fillModelProperties($model);
     }
@@ -94,33 +97,33 @@ class Repository {
         }
         $model->modified_date = time();
         if(!$model->id) {
-            $model->id = $this->getNewID($model->name);
-            $this->connection->rpush($model->name, $model->id);
+            $model->id = $this->getNewID($model->RepositoryNameSave);
+            $this->connection->rpush($model->RepositoryNameSave, $model->id);
         }
         foreach($model as $property => $value) {
             if(is_object($value)) {
                 $this->save($value);
-                $this->connection->hset($model->name.':'.$model->id, $property, $value->name.':model:'.$value->id);
+                $this->connection->hset($model->RepositoryNameSave.':'.$model->id, $property, $value->RepositoryNameSave.':model:'.$value->id);
             } else if(is_array($value)) {
                 foreach($value as $v) {
                     if(is_object($v)) {
                         $this->save($v);
-                        $this->connection->rpush($model->id.':list:'.$property, $v->name.':model:'.$v->id);
+                        $this->connection->rpush($model->id.':list:'.$property, $v->RepositoryNameSave.':model:'.$v->id);
                     } else {
                         $this->connection->rpush($model->id.':list:'.$property, $v);
                     }
                 }
-                $this->connection->hset($model->name.':'.$model->id, $property, $model->id.':list:'.$property);
+                $this->connection->hset($model->RepositoryNameSave.':'.$model->id, $property, $model->id.':list:'.$property);
             } else {
-                $this->connection->hset($model->name.':'.$model->id, $property, $value);
+                $this->connection->hset($model->RepositoryNameSave.':'.$model->id, $property, $value);
             }
         }
-        foreach($this->models[$model->name] as $propertyName => $property) {
+        foreach($this->models[$model->RepositoryNameSave] as $propertyName => $property) {
             if(isset($property['index']) && $property['index']) {
-                $this->connection->hset($model->name.':'.$propertyName, $model->$propertyName, $model->id);
+                $this->connection->hset($model->RepositoryNameSave.':'.$propertyName, $model->$propertyName, $model->id);
             }
             if(isset($property['sort']) && $property['sort']) {
-                $this->connection->zadd($model->name.':'.$propertyName, self::getScore($property['type'], $model->$propertyName), $model->id);
+                $this->connection->zadd($model->RepositoryNameSave.':'.$propertyName, self::getScore($property['type'], $model->$propertyName), $model->id);
             }
         }
     }
@@ -231,7 +234,7 @@ class Repository {
      * @protected
      */
     protected function validate(stdClass $model) {
-        foreach($this->models[$model->name] as $propertyName => $property) {
+        foreach($this->models[$model->RepositoryNameSave] as $propertyName => $property) {
             $this->validateType($propertyName, $property, $model);
         }
     }
@@ -250,7 +253,7 @@ class Repository {
             }
         }
         if($value && (self::propertyIs($propertyDef, 'unique') || self::propertyIs($propertyDef, 'index'))) {
-            $result = $this->loadByIndex($model->name, $propertyName, $value);
+            $result = $this->loadByIndex($model->RepositoryNameSave, $propertyName, $value);
             if($result && $result->id != $result->id) {
                 throw new Exception\Validation($propertyName." must be unique.");
             }
@@ -334,9 +337,10 @@ class Repository {
      * @private
      */
     private function fillModelProperties(stdClass $model) {
-        foreach($this->models[$model->name] as $property => $value) {
+
+        foreach($this->models[$model->RepositoryNameSave] as $property => $value) {
             if(!isset($model->$property)) {
-                $type = $this->models[$model->name][$property]['type'];
+                $type = $this->models[$model->RepositoryNameSave][$property]['type'];
                 switch($type) {
                     case 'integer':
                         $model->$property = 0;
